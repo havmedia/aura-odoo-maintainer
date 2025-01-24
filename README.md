@@ -1,0 +1,1 @@
+# aura-odoo-maintainer
