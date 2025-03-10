@@ -11,6 +11,7 @@ from .exceptions import (
     ServiceNotFoundError,
     ServiceAlreadyExistsError
 )
+from .const import SECURE_SERVICES
 
 
 def _detect_compose_command() -> List[str]:
@@ -194,6 +195,9 @@ class ComposeManager:
 
         if service_name not in self._config['services']:
             raise ServiceNotFoundError(service_name)
+
+        if service_name in SECURE_SERVICES:
+            raise ValueError(f"Cannot remove {service_name} service.")
 
         del self._config['services'][service_name]
         self._save_compose_file()

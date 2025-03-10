@@ -110,6 +110,12 @@ class DatabaseManager:
         :param source_db: Name of the source database
         :param target_db: Name of the target database
         """
+        if source_db == target_db:
+            raise ValueError("Source and target databases cannot be the same")
+
+        if target_db == 'live':
+            raise ValueError("Cannot duplicate to live database")
+
         conn = self._get_connection('postgres')
         cur = conn.cursor()
 
@@ -140,9 +146,23 @@ class DatabaseManager:
         conn = self._get_connection()
         cur = conn.cursor()
 
-        cur.execute(f"CREATE USER {username} WITH PASSWORD %s", (password,))
+        cur.execute(f"CREATE USER {username} WITH PASSWORD '%s' CREATEDB", (password,))
         if superuser:
             cur.execute(f"ALTER USER {username} WITH SUPERUSER")
+
+        cur.close()
+        conn.close()
+
+    def drop_user(self, username: str) -> None:
+        """
+        Drop a user from the PostgreSQL instance
+
+        :param username: Username of the user to drop
+        """
+        conn = self._get_connection()
+        cur = conn.cursor()
+
+        cur.execute(f"DROP USER {username} IF EXISTS")
 
         cur.close()
         conn.close()

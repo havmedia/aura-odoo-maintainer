@@ -1,0 +1,57 @@
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_PASSWORD: mkPZaaVzfV5QHHrb06_8zflPE3GOpnfP3Nja7p9vh6A
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+    ports:
+    - 5432:5432
+    volumes:
+    - ./db/data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U postgres
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+  traefik:
+    image: traefik:v3
+    ports:
+    - 80:80
+    - 443:443
+    - 8080:8080
+    command:
+    - --providers.docker=true
+    - --providers.docker.exposedbydefault=false
+    - --entrypoints.web.address=:80
+    - --entrypoints.websecure.address=:443
+    - --metrics.prometheus=true
+    - --api.insecure=true
+    - --api.dashboard=true
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+    - ./traefik/config:/etc/traefik
+    restart: unless-stopped
+  live:
+    image: traefik/whoami
+    command:
+    - --port=8069
+    - --name=live
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.live.rule=Host(`live.odoo.test`)
+    - traefik.http.routers.live.entrypoints=web
+    - traefik.http.services.live.loadbalancer.server.port=8069
+  pre:
+    image: traefik/whoami
+    command:
+    - --port=8069
+    - --name=pre
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.pre.rule=Host(`pre.odoo.test`)
+    - traefik.http.routers.pre.entrypoints=web
+    - traefik.http.services.pre.loadbalancer.server.port=8069

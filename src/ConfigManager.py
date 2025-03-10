@@ -4,6 +4,8 @@ from typing import List
 
 from src.configs.DatabaseConfig import DatabaseConfig
 from src.configs.OdooConfig import OdooConfig
+from src.exceptions import OdooAlreadyExistsError
+from src.const import SECURE_SERVICES
 
 
 class ConfigManager:
@@ -78,5 +80,22 @@ class ConfigManager:
         return [OdooConfig.from_dict(service) for service in self.config['services']]
 
     def add_odoo(self, service: OdooConfig) -> None:
+        # Check if service name already exists
+        if service.name in [s['name'] for s in self.config['services']]:
+            raise OdooAlreadyExistsError(service.name)
+
+        if service.name in SECURE_SERVICES:
+            raise ValueError(f"Cannot add {service.name} service.")
+
         self.config['services'].append(service.to_dict())
+        self._save_config()
+
+    def remove_odoo(self, name: str) -> None:
+        if name not in [s['name'] for s in self.config['services']]:
+            raise ValueError(f"Odoo service {name} does not exist.")
+
+        if name in SECURE_SERVICES:
+            raise ValueError(f"Cannot remove {name} service.")
+
+        self.config['services'] = [s for s in self.config['services'] if s['name'] != name]
         self._save_config()

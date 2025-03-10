@@ -6,6 +6,7 @@ import yaml
 from src.ConfigManager import ConfigManager
 from src.configs.DatabaseConfig import DatabaseConfig
 from src.configs.OdooConfig import OdooConfig
+from src.exceptions import OdooAlreadyExistsError
 
 
 @pytest.fixture
@@ -230,3 +231,81 @@ def test_get_db_config(tmp_path, mocker):
     assert db_config.name == 'name'
     assert db_config.password == 'password'
     assert db_config.user == 'user'
+
+def test_remove_odoo(tmp_path, mocker):
+    """Test removing an Odoo service configuration"""
+    # Create initial config file with two services
+    config_file = tmp_path / "setup.yml"
+    initial_config = {
+        'version': '1.0',
+        'hosts': ['localhost'],
+        'db': {'password': 'password', 'user': 'user', 'name': 'name'},
+        'services': [
+            {'name': 'odoo1', 'port': 8069},
+            {'name': 'odoo2', 'port': 8070}
+        ]
+    }
+    with open(config_file, 'w') as f:
+        yaml.dump(initial_config, f)
+
+    manager = ConfigManager(str(config_file))
+
+    # Test successful removal
+    manager.remove_odoo('odoo1')
+
+    # Verify service was removed
+    with open(config_file, 'r') as f:
+        saved_config = yaml.safe_load(f)
+
+    assert len(saved_config['services']) == 1
+    assert saved_config['services'][0]['name'] == 'odoo2'
+
+    # Test removing non-existent service
+    with pytest.raises(ValueError, match="Odoo service nonexistent does not exist."):
+        manager.remove_odoo('nonexistent')
+
+    # Test removing secure service (requires SECURE_SERVICES to be defined)
+    with patch('src.ConfigManager.SECURE_SERVICES', ['odoo2']):
+        with pytest.raises(ValueError, match="Cannot remove odoo2 service."):
+            manager.remove_odoo('odoo2')
+
+def test_add_odoo_error_cases(tmp_path, mocker):
+    """Test error cases when adding Odoo services"""
+    # Create initial config file with one service
+    config_file = tmp_path / "setup.yml"
+    initial_config = {
+        'version': '1.0',
+        'hosts': ['localhost'],
+        'db': {'password': 'password', 'user': 'user', 'name': 'name'},
+        'services': [
+            {'name': 'existing-odoo', 'port': 8069}
+        ]
+    }
+    with open(config_file, 'w') as f:
+        yaml.dump(initial_config, f)
+
+    manager = ConfigManager(str(config_file))
+
+    # Test adding service with duplicate name
+    mock_duplicate = mocker.Mock()
+    mock_duplicate.name = 'existing-odoo'
+    mock_duplicate.to_dict.return_value = {'name': 'existing-odoo', 'port': 8070}
+
+    with pytest.raises(OdooAlreadyExistsError, match="existing-odoo"):
+        manager.add_odoo(mock_duplicate)
+
+    # Test adding secure service
+    mock_secure = mocker.Mock()
+    mock_secure.name = 'secure-odoo'
+    mock_secure.to_dict.return_value = {'name': 'secure-odoo', 'port': 8071}
+
+    with patch('src.ConfigManager.SECURE_SERVICES', ['secure-odoo']):
+        with pytest.raises(ValueError, match="Cannot add secure-odoo service."):
+            manager.add_odoo(mock_secure)
+
+    # Verify no additional services were added
+    with open(config_file, 'r') as f:
+        saved_config = yaml.safe_load(f)
+
+    assert len(saved_config['services']) == 1
+    assert saved_config['services'][0]['name'] == 'existing-odoo'

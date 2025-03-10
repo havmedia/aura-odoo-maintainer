@@ -44,6 +44,8 @@ def legacy_compose_manager(tmp_path, mocker):
 def test_initialization(compose_manager, tmp_path):
     assert compose_manager.compose_file_path == tmp_path / "docker-compose.yml"
 
+    config = compose_manager.config
+
 
 def test_initialization_creates_file(tmp_path):
     """Test that ComposeManager creates file with empty config if it doesn't exist"""

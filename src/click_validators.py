@@ -27,7 +27,7 @@ def validate_host(ctx, param, value) -> list:
     if type(value) is not tuple:
         value = (value,)
 
-    if value == ('localhost',):
+    if value == ('localhost',) or value == ('odoo.test',):
         return list(value)
     # Check if the value is a valid hostname. This check verifies general hostname characteristics.
     for host in value:

@@ -188,13 +188,13 @@ def test_create_user(db_manager, mock_connection):
 
     # Test creating regular user
     db_manager.create_user('new_user', 'password123')
-    mock_cursor.execute.assert_called_with("CREATE USER new_user WITH PASSWORD %s", ('password123',))
+    mock_cursor.execute.assert_called_with("CREATE USER new_user WITH PASSWORD '%s' CREATEDB", ('password123',))
 
     # Test creating superuser
     mock_cursor.reset_mock()
     db_manager.create_user('new_superuser', 'password456', superuser=True)
     assert mock_cursor.execute.call_count == 2
-    mock_cursor.execute.assert_any_call("CREATE USER new_superuser WITH PASSWORD %s", ('password456',))
+    mock_cursor.execute.assert_any_call("CREATE USER new_superuser WITH PASSWORD '%s' CREATEDB", ('password456',))
     mock_cursor.execute.assert_any_call("ALTER USER new_superuser WITH SUPERUSER")
 
 

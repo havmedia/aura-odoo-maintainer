@@ -149,18 +149,35 @@ class BaseService:
         """Convert service configuration to dictionary"""
         return {self.name: self._config}
 
+    def set_labels(self, labels: list[str]) -> 'BaseService':
+        """Set service labels"""
+        self._config['labels'] = labels
+        return self
+
+    def add_labels(self, labels: list[str]) -> 'BaseService':
+        """Add labels to service"""
+        self._config['labels'] = self._config.get('labels', []) + labels
+        return self
+
+    def add_traefik(self, host: str, server_port: str) -> 'BaseService':
+        """Add traefik commands to service"""
+        return self.add_labels([
+            'traefik.enable=true',
+            f'traefik.http.routers.{self.name}.rule=Host(`{host}`)',
+            f'traefik.http.routers.{self.name}.entrypoints=web',
+            f'traefik.http.services.{self.name}.loadbalancer.server.port={server_port}'
+        ])
 
 class WhoamiService(BaseService):
     """Traefik whoami service configuration"""
 
-    def __init__(self, name: str, port: int = 2001):
+    def __init__(self, name: str, port: int = 8069):
         super().__init__(name)
         self.set_image("traefik/whoami")
         self.set_command([
             f"--port={port}",
             f"--name={name}"
         ])
-        self.set_ports([f"{port}:{port}"])
 
 
 class PostgresService(BaseService):

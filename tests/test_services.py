@@ -1,5 +1,5 @@
 import pytest
-from src.Services import BaseService, WhoamiService, PostgresService
+from src.Services import BaseService, WhoamiService, PostgresService, TraefikService
 from src.ComposeManager import ComposeManager
 from src.configs.DatabaseConfig import DatabaseConfig
 from src.exceptions import (
@@ -17,6 +17,7 @@ def test_base_service():
     service.set_ports(["80:80"])
     service.set_environment({"DEBUG": "true"})
     service.set_depends_on(["db", "redis"])
+    service.set_labels(["label1", "label2"])
     
     config = service.to_dict()
     assert "test" in config
@@ -24,6 +25,15 @@ def test_base_service():
     assert config["test"]["ports"] == ["80:80"]
     assert config["test"]["environment"] == {"DEBUG": "true"}
     assert config["test"]["depends_on"] == ["db", "redis"]
+    assert config["test"]["labels"] == ["label1", "label2"]
+
+    service.add_labels(["label3", "label4"])
+    config = service.to_dict()
+    assert config["test"]["labels"] == ["label1", "label2", "label3", "label4"]
+
+    service.add_traefik("host1", "1010:1010")
+    config = service.to_dict()
+    assert config["test"]["labels"] == ["label1", "label2", "label3", "label4", "traefik.enable=true", "traefik.http.routers.test.rule=Host(`host1`)", "traefik.http.routers.test.entrypoints=web", "traefik.http.services.test.loadbalancer.server.port=1010:1010"]
 
 
 def test_base_service_healthcheck():
@@ -138,7 +148,6 @@ def test_whoami_service():
     
     assert "test_whoami" in config
     assert config["test_whoami"]["image"] == "traefik/whoami"
-    assert config["test_whoami"]["ports"] == ["8080:8080"]
     assert "--port=8080" in config["test_whoami"]["command"]
     assert "--name=test_whoami" in config["test_whoami"]["command"]
 
@@ -249,3 +258,25 @@ def test_postgres_service():
     
     # Check restart policy
     assert db_config["restart"] == "unless-stopped"
+
+def test_traefik_service():
+    service = TraefikService(
+        name="test_traefik",
+        dashboard_port=8080,
+        api_insecure=True,
+        metrics=True
+    )
+
+    config = service.to_dict()
+    assert "test_traefik" in config
+    assert config["test_traefik"]["image"] == "traefik:v3"
+    assert config["test_traefik"]["ports"] == ["80:80", "443:443", "8080:8080"]
+    assert config["test_traefik"]["command"] == [
+        "--providers.docker=true",
+        "--providers.docker.exposedbydefault=false",
+        "--entrypoints.web.address=:80",
+        "--entrypoints.websecure.address=:443",
+        "--metrics.prometheus=true",
+        "--api.insecure=true",
+        "--api.dashboard=true"
+    ]
